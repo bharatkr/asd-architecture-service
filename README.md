@@ -45,6 +45,3 @@ curl -sS -X POST "http://localhost:8015/api/v1/asd/generate" \
   -o ASD.docx
 ```
 
-## Relocate into `backend/` (optional)
-
-Copy this folder next to `login-auth`, add `<module>asd-architecture-service</module>` to `backend/pom.xml`, and align the parent POM if you want unified versioning with other microservices.
