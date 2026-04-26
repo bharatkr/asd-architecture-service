@@ -19,11 +19,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/asd")
-@Tag(name = "ASD", description = "Generate Architecture Specification Documents from a Git repository")
+@Tag(name = "ASD", description = "Generate Architecture Specification Documents from a Git repository (DOCX or PDF)")
 public class AsdController {
-
-  public static final MediaType DOCX =
-      MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
 
   private final AsdOrchestrationService orchestrationService;
 
@@ -31,25 +28,33 @@ public class AsdController {
     this.orchestrationService = orchestrationService;
   }
 
-  @PostMapping(value = "/generate", consumes = MediaType.APPLICATION_JSON_VALUE, produces = "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+  @PostMapping(value = "/generate", consumes = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
-      summary = "Generate ASD (Word download)",
-      description = "Runs the pipeline and returns a **.docx** file. Use Postman/curl or browser download; Swagger UI may not preview binary bodies."
+      summary = "Generate ASD (binary download)",
+      description = "Runs the pipeline. Response is **DOCX** or **PDF** based on `documentFormat` in the JSON body."
   )
-  @ApiResponse(responseCode = "200", description = "Word document", content = @Content(mediaType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
-  public ResponseEntity<byte[]> generateDocx(@Valid @RequestBody GenerateAsdRequest request) {
+  @ApiResponse(
+      responseCode = "200",
+      description = "Generated document",
+      content = {
+          @Content(mediaType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+          @Content(mediaType = "application/pdf")
+      }
+  )
+  public ResponseEntity<byte[]> generate(@Valid @RequestBody GenerateAsdRequest request) {
     GenerationResult result = orchestrationService.runPipeline(request);
     return ResponseEntity.ok()
         .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + result.fileName() + "\"")
         .header("X-ASD-Commit-Sha", result.commitSha() == null ? "" : result.commitSha())
-        .contentType(DOCX)
-        .body(result.documentWord());
+        .header("X-ASD-Document-Format", result.documentFormat().name())
+        .contentType(result.mediaType())
+        .body(result.documentBytes());
   }
 
   @PostMapping(value = "/generate/bundle", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
       summary = "Generate ASD (JSON + Base64)",
-      description = "Same pipeline as /generate, but returns JSON including **documentWordBase64** — convenient for Swagger \"Try it out\" demos."
+      description = "Same pipeline as /generate; returns JSON including **documentBase64** and **contentType** for Swagger demos."
   )
   public GenerateAsdBundleResponse generateBundle(@Valid @RequestBody GenerateAsdRequest request) {
     return orchestrationService.generateBundle(request);

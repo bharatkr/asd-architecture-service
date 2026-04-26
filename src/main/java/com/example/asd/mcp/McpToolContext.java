@@ -8,7 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Mutable pipeline context passed between MCP tools. */
+/** Mutable pipeline context passed between MCP-style tools. */
 public final class McpToolContext {
 
   private final GenerateAsdRequest request;
@@ -20,8 +20,9 @@ public final class McpToolContext {
   private Map<String, Object> inventorySummary = Map.of();
   private Map<String, Object> mavenSummary = Map.of();
   private Map<String, Object> springSummary = Map.of();
+  private Map<String, Object> sqlScriptSummary = Map.of();
   private String openApiJson;
-  private byte[] documentWord;
+  private byte[] documentBytes;
 
   public McpToolContext(GenerateAsdRequest request) {
     this.request = request;
@@ -91,6 +92,14 @@ public final class McpToolContext {
     this.springSummary = springSummary;
   }
 
+  public Map<String, Object> sqlScriptSummary() {
+    return sqlScriptSummary;
+  }
+
+  public void setSqlScriptSummary(Map<String, Object> sqlScriptSummary) {
+    this.sqlScriptSummary = sqlScriptSummary;
+  }
+
   public String openApiJson() {
     return openApiJson;
   }
@@ -99,11 +108,11 @@ public final class McpToolContext {
     this.openApiJson = openApiJson;
   }
 
-  public byte[] documentWord() {
-    return documentWord;
+  public byte[] documentBytes() {
+    return documentBytes;
   }
 
-  public void setDocumentWord(byte[] documentWord) {
-    this.documentWord = documentWord;
+  public void setDocumentBytes(byte[] documentBytes) {
+    this.documentBytes = documentBytes;
   }
 }

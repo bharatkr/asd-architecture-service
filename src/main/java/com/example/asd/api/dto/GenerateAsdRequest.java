@@ -1,5 +1,6 @@
 package com.example.asd.api.dto;
 
+import com.example.asd.domain.DocumentFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 
@@ -16,7 +17,10 @@ public record GenerateAsdRequest(
     String swaggerUrl,
 
     @Schema(description = "If true, include a template section for LLM-assisted risk narrative (no external LLM call in this build)")
-    boolean includeLlmPlaceholderSection
+    boolean includeLlmPlaceholderSection,
+
+    @Schema(description = "Output document type: DOCX or PDF (default DOCX)", example = "DOCX", allowableValues = {"DOCX", "PDF"})
+    DocumentFormat documentFormat
 ) {
   public GenerateAsdRequest {
     if (branch != null && branch.isBlank()) {
@@ -24,6 +28,9 @@ public record GenerateAsdRequest(
     }
     if (swaggerUrl != null && swaggerUrl.isBlank()) {
       swaggerUrl = null;
+    }
+    if (documentFormat == null) {
+      documentFormat = DocumentFormat.DOCX;
     }
   }
 }

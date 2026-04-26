@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import org.springframework.http.MediaType;
 
+import java.util.Locale;
+
 /**
  * Supported ASD output formats. JSON body accepts {@code "DOCX"} or {@code "PDF"} (case-insensitive).
  */
@@ -16,7 +18,11 @@ public enum DocumentFormat {
     if (raw == null || raw.isBlank()) {
       return DOCX;
     }
-    return DocumentFormat.valueOf(raw.trim().toUpperCase());
+    try {
+      return DocumentFormat.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+    } catch (IllegalArgumentException ex) {
+      throw new IllegalArgumentException("documentFormat must be DOCX or PDF");
+    }
   }
 
   @JsonValue

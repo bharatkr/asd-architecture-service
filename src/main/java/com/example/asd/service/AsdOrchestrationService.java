@@ -30,14 +30,15 @@ public class AsdOrchestrationService {
       for (McpTool tool : pipeline) {
         tool.execute(ctx);
       }
-      byte[] bytes = ctx.documentWord();
+      byte[] bytes = ctx.documentBytes();
       if (bytes == null || bytes.length == 0) {
-        throw new IllegalStateException("Document assembler produced no output.");
+        throw new IllegalStateException("Document export produced no output.");
       }
       String sha = ctx.commitSha();
-      String fileName = "ASD-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + ".docx";
+      String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+      String fileName = "ASD-" + ts + request.documentFormat().fileExtension();
       List<ToolInvocation> trace = toTrace(ctx.traceSnapshot());
-      return new GenerationResult(bytes, sha, fileName, trace);
+      return new GenerationResult(bytes, sha, fileName, request.documentFormat(), trace);
     } catch (Exception e) {
       throw new IllegalStateException("ASD pipeline failed: " + e.getMessage(), e);
     } finally {
@@ -53,10 +54,12 @@ public class AsdOrchestrationService {
 
   public GenerateAsdBundleResponse generateBundle(GenerateAsdRequest request) {
     GenerationResult gen = runPipeline(request);
-    String b64 = Base64.getEncoder().encodeToString(gen.documentWord());
+    String b64 = Base64.getEncoder().encodeToString(gen.documentBytes());
     return new GenerateAsdBundleResponse(
         gen.commitSha(),
         gen.fileName(),
+        gen.contentTypeString(),
+        gen.documentFormat(),
         b64,
         gen.toolTrace()
     );

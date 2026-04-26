@@ -1,0 +1,11 @@
+# Maven
+/target/
+
+# All hidden files and directories in this module (names starting with ".")
+.*
+!.gitignore
+
+# If you add Maven Wrapper later, track it explicitly:
+# !.mvn/
+# !mvnw
+# !mvnw.cmd
