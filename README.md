@@ -1,50 +1,74 @@
 # ASD Architecture Service
 
-Spring Boot service with **Swagger UI**. It clones a Git repo, runs **MCP-style tools** in-process, and produces a **formatted Word `.docx`** Architecture Specification Document (ASD).
+Small Spring Boot app that clones a Git repo, runs a **pipeline of MCP-style tools** in-process (`McpTool` + shared `McpToolContext`: clone, inventory, Maven graph, Spring scan, SQL scripts, optional OpenAPI, then export), and writes an **Architecture Specification Document** as **DOCX** or **PDF**. That’s the same *shape* as Model Context Protocol tooling (discrete tools, shared context, trace), but it’s **not** a standalone MCP wire server—everything runs in one JVM unless you add a protocol adapter later.
 
-**Design (architecture, sequence, extension roadmap):** see [`docs/DESIGN.md`](docs/DESIGN.md).
+The doc includes a simple **PNG** flowchart so Word/PDF don’t choke on Mermaid.
 
-## Run
+More detail: [`docs/DESIGN.md`](docs/DESIGN.md).
+
+## What’s in the code (rough map)
+
+| Package | What it does |
+|---------|----------------|
+| `api` | REST controllers, DTOs, errors |
+| `config` | Spring wiring for the pipeline |
+| `domain` | Small types like `DocumentFormat` |
+| `document.diagram` | Flowchart → PNG (Java2D) |
+| `document.docx` / `document.pdf` | DOCX (POI) and PDF (PDFBox) |
+| `document.json` | Shared JSON formatting for traces |
+| `mcp` | `McpTool` + `McpToolContext` |
+| `mcp.tools` | Clone, inventory, Maven graph, Spring scan, SQL, OpenAPI, export |
+| `service` | Runs the pipeline, returns `GenerationResult` |
+| `util` | File/path helpers |
+
+## Run it
 
 ```bash
 cd asd-architecture-service
 mvn spring-boot:run
 ```
 
-- **Swagger UI:** `http://localhost:8015/swagger-ui.html`  
-- **OpenAPI JSON:** `http://localhost:8015/v3/api-docs`
+- Swagger UI: `http://localhost:8015/swagger-ui.html`  
+- OpenAPI JSON: `http://localhost:8015/v3/api-docs`
 
-## Endpoints (demo)
+## HTTP API
 
-| Method | Path | Response |
-|--------|------|----------|
-| `POST` | `/api/v1/asd/generate` | **Binary `.docx`** download (`Content-Disposition: attachment`) |
-| `POST` | `/api/v1/asd/generate/bundle` | **JSON**: `documentWordBase64`, `fileName`, `commitSha`, `toolTrace` |
+| Method | Path | What you get |
+|--------|------|----------------|
+| `POST` | `/api/v1/asd/generate` | Raw **DOCX** or **PDF** (download) |
+| `POST` | `/api/v1/asd/generate/bundle` | JSON with Base64 body, `contentType`, `documentFormat`, and `toolTrace` |
 
-Use **`/generate/bundle` in Swagger “Try it out”** (copy Base64 → decode to `.docx`). Use **`/generate` in Postman** (“Send and Download”) for an immediate file.
+### `GenerateAsdRequest` fields
 
-### Example request body
+| Field | Required | Notes |
+|-------|----------|--------|
+| `githubUrl` | yes | HTTPS Git URL |
+| `branch` | no | Uses default branch if you skip it |
+| `swaggerUrl` | no | e.g. `http://localhost:8080/v3/api-docs` |
+| `includeLlmPlaceholderSection` | no | boolean |
+| `documentFormat` | no | `DOCX` (default) or `PDF` |
+
+### Example body (PDF)
 
 ```json
 {
   "githubUrl": "https://github.com/spring-projects/spring-petclinic.git",
   "branch": "main",
   "swaggerUrl": null,
-  "includeLlmPlaceholderSection": true
+  "includeLlmPlaceholderSection": true,
+  "documentFormat": "PDF"
 }
 ```
 
-Optional `swaggerUrl` (e.g. `http://localhost:8080/v3/api-docs`) pulls live OpenAPI JSON into section 7 of the Word doc.
-
-### curl (file download)
+### Download with curl
 
 ```bash
 curl -sS -X POST "http://localhost:8015/api/v1/asd/generate" \
   -H "Content-Type: application/json" \
-  -d '{"githubUrl":"https://github.com/spring-projects/spring-petclinic.git","branch":"main","swaggerUrl":null,"includeLlmPlaceholderSection":true}' \
+  -d '{"githubUrl":"https://github.com/spring-projects/spring-petclinic.git","branch":"main","swaggerUrl":null,"includeLlmPlaceholderSection":false,"documentFormat":"DOCX"}' \
   -o ASD.docx
 ```
 
-## Relocate into `backend/` (optional)
+## Moving this folder
 
-Copy this folder next to `login-auth`, add `<module>asd-architecture-service</module>` to `backend/pom.xml`, and align the parent POM if you want unified versioning with other microservices.
+If you prefer it under a `backend/` tree with other services, copy the directory and wire it into your parent POM like any other module—nothing here depends on living inside the frontend repo.
