@@ -4,7 +4,7 @@ Small Spring Boot app that clones a Git repo, runs a **pipeline of MCP-style too
 
 The doc includes a simple **PNG** flowchart so Word/PDF don’t choke on Mermaid.
 
-More detail: [`docs/DESIGN.md`](docs/DESIGN.md).
+
 
 ## What’s in the code (rough map)
 
