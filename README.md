@@ -69,4 +69,4 @@ curl -sS -X POST "http://localhost:8015/api/v1/asd/generate" \
   -o ASD.docx
 ```
 
-
+### The sample files are present in docs folder in this repo.
