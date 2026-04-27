@@ -6,7 +6,7 @@ This document explains **what the service does**, **how the pieces fit together*
 
 ## 1. Purpose
 
-Generate an **Architecture Specification Document (ASD)** from a remote **Git** repository (typically GitHub), using a **fixed pipeline of analysis steps** exposed as **MCP-style tools** (Java interfaces), and deliver the result as a **Microsoft Word `.docx`** with structured headings, tables, and monospace technical blocks.
+Generate an **Architecture Specification Document (ASD)** from a remote **Git** repository (typically GitHub), using a **fixed pipeline of analysis steps** exposed as **MCP-style tools** (Java interfaces), and deliver the result as **Microsoft Word `.docx`** or **PDF** with structured headings, tables, diagrams, and monospace technical blocks.
 
 Two consumption modes:
 
@@ -62,7 +62,8 @@ flowchart TB
     T3[MavenModuleGraphTool]
     T4[SpringStereotypeScanTool]
     T5[OpenApiIngestTool]
-    T6[AsdDocxAssembleTool]
+    T6[ApiStackScanTool]
+    T7[AsdDocumentExportTool]
   end
   subgraph Infra["Infrastructure"]
     Props[AsdProperties]
@@ -71,7 +72,7 @@ flowchart TB
 
   C --> O
   O --> P
-  P --> T1 --> T2 --> T3 --> T4 --> T5 --> T6
+  P --> T1 --> T2 --> T3 --> T4 --> T5 --> T6 --> T7
   T1 --> Props
   T2 --> Props
   T4 --> Props
@@ -98,13 +99,18 @@ Mutable **pipeline context**:
 | `workspaceDir` | `GitCloneTool` | Cleanup |
 | `repositoryRoot` | `GitCloneTool` | All scanners |
 | `commitSha` | `GitCloneTool` | ASD title table |
-| `inventorySummary` | `RepositoryInventoryTool` | DOCX §2 |
-| `mavenSummary` | `MavenModuleGraphTool` | DOCX §3 |
-| `springSummary` | `SpringStereotypeScanTool` | DOCX §4 |
-| `openApiJson` | `OpenApiIngestTool` | DOCX §7 |
-| `documentWord` | `AsdDocxAssembleTool` | HTTP response |
+| `inventorySummary` | `RepositoryInventoryTool` | ASD §3–3.4 (tabular + workspace paths + appendix JSON); uses `RepoTreeWalker` (skips `node_modules`, `target`, …) |
+| `mavenSummary` | `MavenModuleGraphTool` | ASD §4 |
+| `springSummary` | `SpringStereotypeScanTool` | ASD §5 |
+| `sqlScriptSummary` | `SqlScriptAnalysisTool` | ASD §7 (tabular + appendix JSON) |
+| `sqlErModel` | `SqlScriptAnalysisTool` | ER PNG in §7 when DDL infers tables |
+| `openApiJson` | `OpenApiIngestTool` | ASD §6 (metadata, REST op table, excerpt) |
+| `apiSurfaceSummary` | `ApiStackScanTool` | ASD §6 — Spring Boot vs Node, REST vs GraphQL, OpenAPI op list |
+| `documentBytes` | `AsdDocumentExportTool` | HTTP response (DOCX or PDF) |
 
-**Trace:** ordered list of `{tool, status, detail}` returned on **`/generate/bundle`**. The Word document’s Appendix A points readers there so the trace always includes the final assembler step.
+**Trace:** ordered list of `{tool, status, detail}` returned on **`/generate/bundle`**. Appendix A of the export renders this as a table (DOCX) or monospace lines (PDF).
+
+**ASD layout:** `AsdNarrative` + `DocxAsdBuilder` / `PdfAsdBuilder` produce a presentation-style report: document control, executive summary, findings as **tables** (not raw JSON in the body), diagrams, RAG-style quality/security rows, then appendices (trace + truncated JSON).
 
 ---
 
@@ -113,18 +119,22 @@ Mutable **pipeline context**:
 | Tool | Technology | Output |
 |------|-------------|--------|
 | **git_clone** | JGit shallow clone | Files on disk; `commitSha` |
-| **repo_inventory** | `Files.walk` (capped) | Extension histogram, counts of `pom.xml`, Gradle files, `application*` configs |
-| **maven_module_graph** | `MavenXpp3Reader` | `groupId` / `artifactId` / `modules` / sample dependencies from **root** `pom.xml` only |
+| **repo_inventory** | `RepoTreeWalker` (capped regular files) | Extension + polyglot histograms; **all** sampled `package.json` / `pom.xml` paths; `angular.json` / `nx.json` counts; `ANGULAR_TYPESCRIPT` bucket |
+| **maven_module_graph** | `MavenXpp3Reader` | Primary `pom.xml` (root or first from inventory) + **sample child POMs** → merged dependency artifact list |
 | **spring_stereotype_scan** | Line scan of `.java` | Counts of `@RestController`, `@Service`, etc. (heuristic, not a full AST) |
+| **sql_script_analysis** | `Files.walk` + line heuristics | `.sql` inventory, DDL/DML mix, inferred ER model |
 | **openapi_ingest** | `RestClient` GET | Optional OpenAPI JSON from a **running** `swaggerUrl` |
-| **asd_docx_assemble** | Apache POI `XWPFDocument` | Final `.docx` bytes |
+| **api_stack_scan** | Inventory `package.json` paths + `pom` + `RepoTreeWalker` + OpenAPI | Polyglot profile (**`FULL_STACK_JAVA_ANGULAR`** when Spring + Angular signals), REST vs GraphQL, Angular **HttpClient** / **environment URL** hints, REST op table |
+| **asd_document_export** | Apache POI / PDFBox + Java2D PNG | Final **DOCX** or **PDF** bytes; architecture flowchart + optional ER diagram |
 
 **Limitations (honest for interviews):**
 
 - Root POM only for Maven graph; multi-module child POMs are not all merged.
 - Spring scan is **textual**, not JavaParser-level semantics.
-- OpenAPI section is **truncated** to keep document size reasonable.
+- OpenAPI in the document is **truncated**; the **REST operation table** lists path + method from `paths` but may omit vendor extensions.
+- **GraphQL** is inferred from dependencies and schema-like files, not from executing a GraphQL introspection query.
 - Mermaid in Word is **plain text** (Word does not render Mermaid natively).
+- **ER diagrams** are rendered as **PNG** (Java2D) from heuristics over `.sql` files (`CREATE TABLE`, `REFERENCES`, `ALTER TABLE … FOREIGN KEY … REFERENCES`), not from Mermaid.
 
 ---
 
