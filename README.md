@@ -69,6 +69,4 @@ curl -sS -X POST "http://localhost:8015/api/v1/asd/generate" \
   -o ASD.docx
 ```
 
-## Moving this folder
 
-If you prefer it under a `backend/` tree with other services, copy the directory and wire it into your parent POM like any other module—nothing here depends on living inside the frontend repo.
